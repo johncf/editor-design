@@ -1,0 +1,10 @@
+     |<-- 15 cols -->|
+----+-----------------+  ---
+  1 | The quick fox j |   ^
+    | umped!          |   |
+  2 | Hello, world!   | 5 rows
+~   |                 |   |
+~   |                 |   v
+----+-----------------+  ---
+
+Type-setting of line-numbers, borders, or margins are _not_ handled by the Core.

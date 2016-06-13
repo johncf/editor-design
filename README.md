@@ -1,82 +1,139 @@
 # In search of a better text editor, by design
 
-Blueprints of a better engineered text editor!
+Blueprints of an imaginary text editor!
 
 ## Introduction
 
-There have been too many text editor implementations. Some have their (partial)
-designs published in human-friendly formats<sup>[\[1\]][design-articles]</sup>.
-And there are great ideas hiding out there, waiting to be picked up! This
-repository is an attempt to bring together innovative ideas to design the
-greatest text editor in existence!!
+This was born out of the fascination I have towards text editors and see how I
+would design one, borrowing many great ideas from our vast universe. The focus
+was on making the whole thing as asynchronous and non-blocking as possible, and
+consequently allowing stuff to be run in parallel.
 
-I wish to maintain a nearly complete blueprint of a text editor.
-
-This repository is [dedicated to the public domain](LICENSE).
+This repository is [dedicated to the public domain (CC0)](LICENSE).
 
 [design-articles]: #other-design-articles
 
-## Design Goals (vague)
+## Design Goals
 
-- Robust
-- Modular
-- Performant
-- Cross-platform viable
-- Extensible
+- Robust: can't afford lose stuff
+- Performant: quick and non-blocking
+- Modular: independent modules with clean interfaces
+- Extensible: where the fun begins!
 
 ## Non-goals
 
 - Define a new scripting language
 - Support for proportional font rendering
+- Accurate Unicode rendering (see [Typesetting](#typesetting))
 - Multiple cursors
 
 ## Terminology
 
-- Buffer: Represents the contents of a file being edited.
+- Buffer: Represents the contents of the file being edited.
 - Mode: An editor state (Normal, Insert etc.)
+- Frame: An area where text is rendered, with dimensions in rows x columns
 
-## Separation of concerns
+## Architecture overview
 
-The entire editor is broadly separated into two components: Core and UI.
+The editor has two main components: Core and Shell.
+
+![Architecture diagram](https://critiqjo.github.io/editor-design/arch.svg)
 
 ### Concerns of Core
 
 - Manage a single file
   - File IO
   - Buffer management (incl. undo history)
-- Typesetting (constrained to given dimensions -- rows x cols)
-- Command handling
-  - Cursor movement and scrolling
-  - Text editing operations
-  - and more...
+- Typesetting (constrained to frame dimensions)
+  - Support for multiple views, with only one active view representing the
+    current cursor position (and mode?)
+  - Cursor movements and scrolling
+- Text editing operations
 
-### Concerns of UI
+### Concerns of Shell
 
 - Visual rendering
-- User input handling (keyboard and mouse)
-  - Key mappings (The Core does _not_ maintain any keymaps)
+- User input handling
+  - Key mappings (The Core has no concept of keys)
+  - Macros
 - Syntax highlighting
   - Parser implemented as a separate independent component
 - Text completion
+- Search and replace
+- Integration with external tools
+
+## Buffer management
+
+The data structure used to represent and manage text is the very core of an
+editor. It should be so designed as to provide these two features:
+
+- Efficient and threadsafe snapshots: for processing text concurrently
+- Efficient diffing of two versions: for efficient reuse of old processed data
+
+A copy-on-write [Rope][rope-wiki]-like data structure should be used to
+represent the contents of a file. All text (including all history of changes)
+should be stored in a single thread-safe, append-only list (TODO describe), and
+the leaves of the rope should just store offsets in the list and length of the
+chunk, except when size of the chunk is less than 16 bytes which may be
+directly embedded. Reasons for the choice:
+
+- Create thread-safe view of the contents with O(1) cost
+- Having almost all chunks being represented using an offset and length, diff
+  of two versions in history can be found in roughly O(n^2) space and time with
+  a slightly modified LCS algorithm, where n is the number of chunks in the
+  rope (not file size). For asynchronous syntax highlighting, efficient diffing
+  can prove very useful.
+
+[rope-wiki]: https://en.wikipedia.org/wiki/Rope_(data_structure)
+
+### Handling huge files using `mmap`-ed buffers
+
+Having an in-memory vector of all text, when handling huge files, could be
+cumbersome. Therefore an opt-in feature to memory map a file would be nice. In
+this scheme, a chunk in the rope can be represented by either an offset to an
+in-memory vector, or an offset to a memory mapped vector. But memory mapping
+has certain limitations and platform-specific quirkiness. Thus a few features
+may have to be disabled, and/or a few restrictions have to be brought in when
+handling mmapped buffers.
+
+If undo-history has to be preserved, `mmap`-ed files should not be overwritten
+while saving. Instead, create a new file with name `<file>.N` (`N` > 0).
+(Alternatively, in Linux systems, the old file can be safely moved to
+`<file>.N` while `mmap`-ed and the new file can be named `<file>`. Not sure if
+Windows supports this.)
+
+Warn that large files (and its versions) should not be modified in parallel
+from another process; which may cause UB!!
 
 ## Typesetting
 
+- **All Unicode code points are separately and visibly rendered.**
+  - Including non-printing characters
 - Half-width characters take up 1 column each.
 - Full-width characters take up 2 columns each.
-- Combining characters does not take up any space on its own _if_ there is a
-  "combinable" character preceding it.
-- All other characters (control characters, zero-width space, etc.) should be
-  "specially" rendered.
+- [Combining characters][combining-chars] that take up extra space are rendered
+  normally, and the rest are combined with whitespaces (with distinct
+  highlighting), so that they are all separately addressable.
+  - [Normalization][unicode-norm] should be suggested where applicable.
+
+[combining-chars]: https://en.wikipedia.org/wiki/Combining_character
+[unicode-norm]: https://en.wikipedia.org/wiki/Unicode_equivalence#Normalization
 
 ## The Modes
 
-The Core identifies three modes:
+The Core has 2 main states/modes:
 
-- Insert: When printable keys are taken literally
-- Select: During text-selection (printable keys replaces the selection)
-- Operator: When an operator waits for operand(s)
+- Insert: When character inputs are inserted directly
+- Select: When a range of text is selected (character inputs replaces the
+  selection transitioning to Insert mode)
 
-The UI will simulate two additional modes:
+Additionally, there are 2 types of operator sub-states, when it waits for an
+appropriate operand:
+
+- TextObj: Waiting for a text object
+- CharStream: Waiting for one or more characters
+
+The Shell will simulate two additional modes:
 
 - Normal: For easy access to operations in Insert mode
 - Visual: For easy access to operations in Select mode
@@ -100,120 +157,148 @@ the Cursor, on which character-wise operations are applied. Depending on
 context, it may be to right of the Cursor, or to the left. We will discuss more
 about this in Text Objects section.
 
-In Select/Visual mode, the Cursor Block has no value, and can be placed at the
-active end inside the range. Note that when `length` changes from 1 to -1 or
-vice versa, the Block only moves by one column. (TODO illustrate)
-
-Cursor motion is based only on the Cursor position (not the Block).
+In Select/Visual mode, the Cursor Block has no functional significance, and is
+always placed inside the range at the active end (note: `length != 0`). Also
+note that when `length` changes from 1 to -1 or vice versa, the Block moves
+only by one column.
 
 ## Text Objects and Cursor motion
 
-All cursor motion is defined in terms of text objects.
+A text object is a range of text whose contents/endpoints are constrained by
+certain rules. The text objects discussed in this section are located near or
+around the cursor position. Therefore, in the table below, "Start" refers to a
+point at or before the cursor, and "End" refers to a point at or after the
+cursor. `.` represents the cursor position itself, and `/...` represents a
+regular expression.
 
-## Buffer management
+When "Start" or "End" is `.`, it can be used to define a cursor motion. If
+"Start" is `.`, the cursor moves forward, and otherwise, backwards. "Block pos"
+is the position of Cursor Block relative to the Cursor, after the movement has
+been made.
 
-A copy-on-write [Rope][rope-wiki]-like data structure should be used to
-represent the contents of a file. All text (including all history of changes)
-should be stored in a single vector, and the leaves of the rope should just
-store offsets in the vector and length of the chunk. Reasons for the choice:
+| Text object   | Keymap    | Start       | End         | Block pos  | Example |
+|---------------|-----------|-------------|-------------|------------|---------|
+| word          | `w`       | `.`         | `/\b\w/s`   | right      | TODO    |
+| word-rev      | `b`       | `/\b\w/s`   | `.`         | right      | -       |
+| word-end      | `e`       | `.`         | `/\w\b/e`   | left       | -       |
+| word-end-rev  | `ge`      | `/\w\b/e`   | `.`         | left       | -       |
+| word-inner    | `<op>iw`  | `/\b\w/s`   | `/\w\b/e`   | (NA)       | -       |
+| find-char     | `f{char}` | `.`         | `/{char}/e` | left       | -       |
+| find-char-rev | `F{char}` | `/{char}/s` | `.`         | right      | -       |
+| till-char     | `t{char}` | `.`         | `/{char}/s` | left       | -       |
+| till-char-rev | `T{char}` | `/{char}/e` | `.`         | right      | -       |
+| left          | `h`       | `/./s`      | `.`         | unchanged? | -       |
+| right         | `l`       | `.`         | `/./e`      | unchanged? | -       |
+| up            | `k`       | (custom)    | `.`         | unchanged? | -       |
+| down          | `j`       | `.`         | (custom)    | unchanged? | -       |
+| up-virt       | `gk`      | (custom)    | `.`         | unchanged? | -       |
+| down-virt     | `gj`      | `.`         | (custom)    | unchanged? | -       |
+| ...           |           |             |             |            |         |
 
-- Create thread-safe view of the contents with O(1) cost
-- All chunks can be represented using an offset and length. Thus diff of two
-  versions in history can be found in O(n^2) space and time with a slightly
-  modified LCS algorithm, where n is the number of chunks in the rope (not file
-  size). For asynchronous syntax highlighting, efficient diffing is necessary).
+Note 1: {find,till}-char{,-rev} patterns are not exactly correct -- the new
+cursor block position should be different from the old.
 
-[rope-wiki]: https://en.wikipedia.org/wiki/Rope_(data_structure)
-
-### Handling huge files using `mmap`-ed buffers
-
-Having an in-memory vector of all text, when handling huge files, could be
-cumbersome. Therefore an opt-in feature to memory map a file would be nice. In
-this scheme, a chunk in the rope can be represented by either an offset to an
-in-memory vector, or an offset to a memory mapped vector. But memory mapping
-has certain limitations and platform-specific quirkiness. Thus a few features
-may have to be disabled, and/or a few restrictions have to be brought in when
-handling mmapped buffers.
-
-If undo-history has to be preserved, `mmap`-ed files should not be overwritten
-while saving. Instead, create a new file with name `<file>.N` (`N` > 0).
-(Alternatively, in Linux systems, the old file can be safely moved to
-`<file>.N` while `mmap`-ed and the new file can be named `<file>`. Not sure if
-Windows supports this.)
-
-Warn that large files (and its versions) should not be modified in parallel
-from another process; which may cause UB!!
+Note 2: up and down text objects are captured with the help of [indices](#real-lines).
 
 ## Regular expressions
 
-Interactive and rich similar to Sam's.
+The Shell will provide two simple mechanisms involving regular expressions:
 
-## Performance improvements through indexing and approximations
+- Search
+- Search and replace
+- Search and replay (a macro)
 
-An entry in an index has three major fields:
+Apart from these, the user must be encouraged to use external tools such as
+`awk` or `sed`. To that end, the user may be provided with a feature to
+"preview" such commands. A "preview" is just a non-blocking way to partially
+view the processed result, also trying to minimize the execution by reading in
+only just enough to fill the current frame (then kill/suspend the subprocess).
 
-- Offset: Buffer byte offset of this entry
+## Performance improvements through indexing
+
+An entry in an index has four major fields:
+
+- Offset: Byte offset of this entry from the beginning of file
+- Version: Version of the buffer using which this entry was created
 - State: The state of the parser or something when this entry was created
 - Data: Something useful
 
 When some text is added or deleted from the buffer, the data structure of the
-index should be such that offsets can be efficiently updated, but the entries
+index should be such that offsets can be efficiently updated. The entries
 following the point of change need not be deleted. In fact, a few consecutive
 changes in text might make most of the indexed data useful again (for example,
-opening a curly brace, entering some text and then closing it later).
+opening a curly brace, entering some text and then closing it later, without
+affecting other pairings).
 
 This is why we need the State entry to make the indexing lazy. Before using the
 Data, check if the current state at that offset is indeed the same as when it
 was indexed.
 
-The indices will be coarse grained or non-existant as we move farther from the
+The indices will be coarse grained or non-existent as we move farther from the
 Cursor. We will be making a few approximations in case we need data from those
 parts of the buffer.
 
-### Line-breaks
+### Real lines
+
+A real line is a range of text that appears between two line-breaks or between
+a line-break and the beginning/end of file.
 
 - State: Nil
-- Data: Nil
+- Data: Total width?
 
 ### Virtual lines
 
+A virtual line is a range of text that is type-set in a single row.
+
 - State: Relative byte offset to a character in the same (real) line which is
          rendered at column 0
-- Data: Nil
+- Data: Character offset (w.r.t the first character in the line)
 
 ### Bracket pairs
 
-- State: Depth (number of unclosed brackets)
+- State: Nil
 - Data: Offset of the matching pair
+
+To check whether an entry is valid/useful in the current version, check whether
+any changes were made between the bracket pair and if so, check whether the
+changes tinkered with brackets (of same type).
+
+Indexing bracket pairs may not be worth the effort unless we are handling large
+json file, or something similar.
 
 ### Syntax highlighting
 
-- State: State identifier of the parser state machine
-- Data: Color
+- State: Something regarding the state of the parser
+- Data: Highlight group
+
+This part is very open ended and really depends on the type of parser used.
+Furthermore, this component can be swapped with a language-specific semantic
+checker to provide very rich highlighting (e.g. highlight errors, using symbol
+table to determine the type of an identifier, etc.).
 
 ## Plugin architecture
 
-Two types:
+There are two types of plugins:
 
-- **Core plugins**: Synchronous hooks - compiled along with core
-- **UI plugins**: Asynchronous - dynamically loaded through scripts
+- **Core plugin**: Synchronous hooks - compiled along with core
+- **Shell plugin**: Asynchronous - dynamically loaded through scripts
 
-Maintain a central list of plugins and option to download custom combination of
-core plugins using on-demand compilation (with caching) 
+Maintain a centralized index of plugins, and also an option to download a
+pre-compiled binary of custom combination of core plugins (through on-demand
+compilation and caching?).
 
 ### Capabilities
 
-There should also be a central list of (versioned) _capabilities_. A capability
+Also maintain a centralized index of (versioned) _capabilities_. A capability
 defines an interface through which a certain task can be accomplished. A plugin
 may provide zero or more capabilities. Thus capabilities are a layer through
 which plugins may interact with and exploit each other. Capability is a concept
-existing only in the UI layer. Is there a possible use-case for Core plugins
-interacting with each other?
+existing only in the Shell.
 
 ## Other design articles
 
 - [GNU Emacs Internals](https://www.gnu.org/software/emacs/manual/html_node/elisp/GNU-Emacs-Internals.html#GNU-Emacs-Internals)
-- [Architecture Analysis and Repair of Open Source Software (page 7)](http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.46.6702&rep=rep1&type=pdf)
-- [Vim, an open-source editor (from section 'Storing text')](http://www.free-soft.org/FSM/english/issue01/vim.html)
+- [Architecture Analysis and Repair of Open Source Software (page 7 onwards)](http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.46.6702&rep=rep1&type=pdf)
+- [Vim, an open-source editor (section 'Storing text' onwards)](http://www.free-soft.org/FSM/english/issue01/vim.html)
 - [Kate internals: Text buffer](https://kate-editor.org/2010/03/03/kate-internals-text-buffer/)
 - [Vis: Text management using a piece table](https://github.com/martanne/vis/blob/master/README.md#text-management-using-a-piece-tablechain)
