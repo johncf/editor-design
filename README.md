@@ -4,15 +4,17 @@ Blueprints of a better engineered text editor!
 
 ## Introduction
 
-There have been too many text editor implementations. Some have their designs
-published openly<sup>[\[1\]](#other-design-articles)</sup>. There are great
-ideas hiding out there, waiting to be picked up! This repository is an attempt
-to bring together innovative ideas to design the greatest text editor in
-existence!!!
+There have been too many text editor implementations. Some have their (partial)
+designs published in human-friendly formats<sup>[\[1\]][design-articles]</sup>.
+And there are great ideas hiding out there, waiting to be picked up! This
+repository is an attempt to bring together innovative ideas to design the
+greatest text editor in existence!!
 
 I wish to maintain a nearly complete blueprint of a text editor.
 
-This article is released under the terms of CC0 license.
+This repository is [dedicated to the public domain](LICENSE).
+
+[design-articles]: #other-design-articles
 
 ## Design Goals (vague)
 
