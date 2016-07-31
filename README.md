@@ -176,29 +176,34 @@ When "Start" or "End" is `.`, it can be used to define a cursor motion. If
 is the position of Cursor Block relative to the Cursor, after the movement has
 been made.
 
-| Text object   | Keymap    | Start       | End         | Block pos  | Example |
-|---------------|-----------|-------------|-------------|------------|---------|
-| word          | `w`       | `.`         | `/\b\w/s`   | right      | TODO    |
-| word-rev      | `b`       | `/\b\w/s`   | `.`         | right      | -       |
-| word-end      | `e`       | `.`         | `/\w\b/e`   | left       | -       |
-| word-end-rev  | `ge`      | `/\w\b/e`   | `.`         | left       | -       |
-| word-inner    | `<op>iw`  | `/\b\w/s`   | `/\w\b/e`   | (NA)       | -       |
-| find-char     | `f{char}` | `.`         | `/{char}/e` | left       | -       |
-| find-char-rev | `F{char}` | `/{char}/s` | `.`         | right      | -       |
-| till-char     | `t{char}` | `.`         | `/{char}/s` | left       | -       |
-| till-char-rev | `T{char}` | `/{char}/e` | `.`         | right      | -       |
-| left          | `h`       | `/./s`      | `.`         | unchanged? | -       |
-| right         | `l`       | `.`         | `/./e`      | unchanged? | -       |
-| up            | `k`       | (custom)    | `.`         | unchanged? | -       |
-| down          | `j`       | `.`         | (custom)    | unchanged? | -       |
-| up-virt       | `gk`      | (custom)    | `.`         | unchanged? | -       |
-| down-virt     | `gj`      | `.`         | (custom)    | unchanged? | -       |
-| ...           |           |             |             |            |         |
+| Text object   | Keymap    | Start       | End         | Block pos  |
+|---------------|-----------|-------------|-------------|------------|
+| word          | `w`       | `.`         | `/\b\w/s`   | right      |
+| word-rev      | `b`       | `/\b\w/s`   | `.`         | right      |
+| word-end      | `e`       | `.`         | `/\w\b/e`   | left       |
+| word-end-rev  | `ge`      | `/\w\b/e`   | `.`         | left       |
+| word-inner    | `<op>iw`  | `/\b\w/s`   | `/\w\b/e`   | (NA)       |
+| find-char     | `f{char}` | `.`         | `/{char}/e` | left       |
+| find-char-rev | `F{char}` | `/{char}/s` | `.`         | right      |
+| till-char     | `t{char}` | `.`         | `/{char}/s` | left       |
+| till-char-rev | `T{char}` | `/{char}/e` | `.`         | right      |
+| left          | `h`       | `/./s`      | `.`         | unchanged? |
+| right         | `l`       | `.`         | `/./e`      | unchanged? |
+| up            | `k`       | (custom)    | `.`         | unchanged? |
+| down          | `j`       | `.`         | (custom)    | unchanged? |
+| up-virt       | `gk`      | (custom)    | `.`         | unchanged? |
+| down-virt     | `gj`      | `.`         | (custom)    | unchanged? |
+| ...           |           |             |             |            |
 
-Note 1: {find,till}-char{,-rev} patterns are not exactly correct -- the new
-cursor block position should be different from the old.
+Note: up and down text objects are captured with the help of [indices](#real-lines).
 
-Note 2: up and down text objects are captured with the help of [indices](#real-lines).
+Below is an illustration of cursor movements and `d`-commands involving them
+that are different from (but more intuvitive than) how Vim behaves.
+
+Also note that the position of cursor _block_ does not play any role in
+determining the outcome of `d`-commands.
+
+![Cursor movements](https://critiqjo.github.io/editor-design/cursor.svg)
 
 ## Regular expressions
 
