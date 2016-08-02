@@ -2,6 +2,32 @@
 
 Blueprints of an imaginary text editor!
 
+## Table of Contents
+
+- [Introduction](#introduction)
+- [Design Goals](#design-goals)
+- [Non-goals](#non-goals)
+- [Terminology](#terminology)
+- [Architecture overview](#architecture-overview)
+  - [Concerns of Core](#concerns-of-core)
+  - [Concerns of Shell](#concerns-of-shell)
+- [Buffer management](#buffer-management)
+  - [Handling huge files using `mmap`-ed buffers](#handling-huge-files-using-mmap-ed-buffers)
+- [Typesetting](#typesetting)
+- [The Modes](#the-modes)
+- [The Cursor](#the-cursor)
+  - [The Cursor Block](#the-cursor-block)
+- [Text Objects and Cursor motion](#text-objects-and-cursor-motion)
+- [Regular expressions](#regular-expressions)
+- [Performance improvements through indexing](#performance-improvements-through-indexing)
+  - [Real lines](#real-lines)
+  - [Virtual lines](#virtual-lines)
+  - [Bracket pairs](#bracket-pairs)
+  - [Syntax highlighting](#syntax-highlighting)
+- [Plugin architecture](#plugin-architecture)
+  - [Capabilities](#capabilities)
+- [Other design articles](#other-design-articles)
+
 ## Introduction
 
 This was born out of the fascination I have towards text editors and see how I
