@@ -63,7 +63,7 @@ This repository is [dedicated to the public domain (CC0)](LICENSE).
 
 The editor has two main components: Core and Shell.
 
-![Architecture diagram](https://critiqjo.github.io/editor-design/arch.svg)
+![Architecture diagram](https://teenyhop.github.io/editor-design/arch.svg)
 
 ### Concerns of Core
 
@@ -229,7 +229,7 @@ that are different from (but more intuvitive than) how Vim behaves.
 Also note that the position of cursor _block_ does not play any role in
 determining the outcome of `d`-commands.
 
-![Cursor movements](https://critiqjo.github.io/editor-design/cursor.svg)
+![Cursor movements](https://teenyhop.github.io/editor-design/cursor.svg)
 
 ## Regular expressions
 
