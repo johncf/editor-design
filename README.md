@@ -13,14 +13,11 @@ Blueprints of an imaginary text editor!
   - [Concerns of Shell](#concerns-of-shell)
 - [Buffer management](#buffer-management)
   - [Handling huge files using `mmap`-ed buffers](#handling-huge-files-using-mmap-ed-buffers)
-- [Typesetting](#typesetting)
-- [The Modes](#the-modes)
 - [The Cursor](#the-cursor)
   - [The Cursor Block](#the-cursor-block)
 - [Text Objects and Cursor motion](#text-objects-and-cursor-motion)
 - [Regular expressions](#regular-expressions)
 - [Performance improvements through indexing](#performance-improvements-through-indexing)
-  - [Real lines](#real-lines)
   - [Virtual lines](#virtual-lines)
   - [Bracket pairs](#bracket-pairs)
   - [Syntax highlighting](#syntax-highlighting)
@@ -41,8 +38,8 @@ This repository is [dedicated to the public domain (CC0)](LICENSE).
 
 ## Design Goals
 
-- Robust: can't afford lose stuff
-- Performant: quick and non-blocking
+- Reliable: don't lose stuff
+- Responsive: non-blocking
 - Modular: independent modules with clean interfaces
 - Extensible: where the fun begins!
 
@@ -50,35 +47,41 @@ This repository is [dedicated to the public domain (CC0)](LICENSE).
 
 - Define a new scripting language
 - Support for proportional font rendering
-- Accurate Unicode rendering (see [Typesetting](#typesetting))
-- Multiple cursors
 
 ## Terminology
 
 - Buffer: Represents the contents of the file being edited.
-- Mode: An editor state (Normal, Insert etc.)
-- Frame: An area where text is rendered, with dimensions in rows x columns
+- Core: The component which handles raw text and file operations.
+- Shell: The user interface.
+- Codepoint: Unicode [code point](https://en.wikipedia.org/wiki/Code_point).
 
 ## Architecture overview
 
 The editor has two main components: Core and Shell.
 
-![Architecture diagram](https://teenyhop.github.io/editor-design/arch.svg)
+![Architecture diagram](https://johncf.github.io/editor-design/arch.svg)
 
 ### Concerns of Core
 
 - Manage a single file
-  - File IO
-  - Buffer management (incl. undo history)
-- Typesetting (constrained to frame dimensions)
-  - Support for multiple views, with only one active view representing the
-    current cursor position (and mode?)
-  - Cursor movements and scrolling
-- Text editing operations
+  - File IO: concerning the actual file, and its swap and undo files
+  - [Buffer management](#buffer-management)
+- Serve buffer contents in chunks on-demand.
+  - When the shell requests for a range of lines, it may specify a maxlength,
+    to avoid fetching huge lines at once.
+- Serving buffer summaries such as number of lines, codepoint count per line
+- Text editing operations: insert, delete, undo, redo
 
 ### Concerns of Shell
 
-- Visual rendering
+- Typesetting and rendering
+- Cursor movements, text selection, and scrolling
+  - Vertical scroll-bars need only reflect the number of lines, even if
+    text-wrapping is enabled.
+    - Mouse-wheel scrolling, cursor movements, or scroll-bar arrow-keys may be
+      used for finer control.
+    - Scroll-bar thumb may be disabled when handling huge files with just a
+      single line (or too few lines).
 - User input handling
   - Key mappings (The Core has no concept of keys)
   - Macros
@@ -94,9 +97,8 @@ The data structure used to represent and manage text is the very core of an
 editor. It should be so designed as to provide these two features:
 
 - Efficient and threadsafe snapshots: for processing text concurrently
-- Efficient diffing of two versions: for efficient reuse of old processed data
 
-A copy-on-write [Rope][rope-wiki]-like data structure should be used to
+A copy-on-write [Rope][rope-wiki]-like data structure might be the best to
 represent the contents of a file. All text (including all history of changes)
 should be stored in a single thread-safe, append-only list (TODO describe), and
 the leaves of the rope should just store offsets in the list and length of the
@@ -107,76 +109,40 @@ directly embedded. Reasons for the choice:
 - Having almost all chunks being represented using an offset and length, diff
   of two versions in history can be found in roughly O(n^2) space and time with
   a slightly modified LCS algorithm, where n is the number of chunks in the
-  rope (not file size). For asynchronous syntax highlighting, efficient diffing
-  can prove very useful.
+  rope (not file size).
 
 [rope-wiki]: https://en.wikipedia.org/wiki/Rope_(data_structure)
 
 ### Handling huge files using `mmap`-ed buffers
 
-Having an in-memory vector of all text, when handling huge files, could be
-cumbersome. Therefore an opt-in feature to memory map a file would be nice. In
-this scheme, a chunk in the rope can be represented by either an offset to an
-in-memory vector, or an offset to a memory mapped vector. But memory mapping
-has certain limitations and platform-specific quirkiness. Thus a few features
-may have to be disabled, and/or a few restrictions have to be brought in when
-handling mmapped buffers.
-
-If undo-history has to be preserved, `mmap`-ed files should not be overwritten
-while saving. Instead, create a new file with name `<file>.N` (`N` > 0).
-(Alternatively, in Linux systems, the old file can be safely moved to
-`<file>.N` while `mmap`-ed and the new file can be named `<file>`. Not sure if
-Windows supports this.)
-
-Warn that large files (and its versions) should not be modified in parallel
-from another process; which may cause UB!!
-
-## Typesetting
-
-- **All Unicode code points are separately and visibly rendered.**
-  - Including non-printing characters
-- Half-width characters take up 1 column each.
-- Full-width characters take up 2 columns each.
-- [Combining characters][combining-chars] that take up extra space are rendered
-  normally, and the rest are combined with whitespaces (with distinct
-  highlighting), so that they are all separately addressable.
-  - [Normalization][unicode-norm] should be suggested where applicable.
-
-[combining-chars]: https://en.wikipedia.org/wiki/Combining_character
-[unicode-norm]: https://en.wikipedia.org/wiki/Unicode_equivalence#Normalization
-
-## The Modes
-
-The Core has 2 main states/modes:
-
-- Insert: When character inputs are inserted directly
-- Select: When a range of text is selected (character inputs replaces the
-  selection transitioning to Insert mode)
-
-Additionally, there are 2 types of operator sub-states, when it waits for an
-appropriate operand:
-
-- TextObj: Waiting for a text object
-- CharStream: Waiting for one or more characters
-
-The Shell will simulate two additional modes:
-
-- Normal: For easy access to operations in Insert mode
-- Visual: For easy access to operations in Select mode
+Having an in-memory representation of all text, when handling huge files, could
+be cumbersome. Therefore the user should be presented with the choice of using
+memory mapping the file with certain limitations. Memory mapped files will be
+opened only in read-only mode. When saving, the original file will not be
+touched by default; instead, a patch-like file will be created which can be used
+to construct the modified file from the original file at a later point. This
+way, intermittent file-save operations can be very quick.
 
 ## The Cursor
 
-The Cursor is defined as a byte range `(offset, length)`, with the restriction
-that the endpoints must be at a character boundary.
+The cursor has two basic states: Insert and Select. Additional modes such as
+Normal, Visual, Operator modes as defined in Vim may be added on top of these
+two basic states.
+
+The cursor is defined to be a byte range `(offset, length)`, with the
+restriction that the endpoints must be at a codepoint boundary. `length` is the
+number of codepoints in selection starting from `offset`.
 
 `(0, 0)` means that the cursor is positioned before the first byte.
 
 In Insert mode, `length` is always equal to `0`.
 
 In Select mode, the active end, where the cursor movements are applied, is at
-`offset + length`. Thus it is valid for `length` to be negative, but not zero.
+`offset + length`. Thus it is valid for `length` to be negative.
 
 ### The Cursor Block
+
+This is an optional feature that may be implemented by Vim-like shells.
 
 In Insert/Normal mode, the Cursor Block marks the character that is focused by
 the Cursor, on which character-wise operations are applied. Depending on
@@ -221,15 +187,13 @@ been made.
 | down-virt     | `gj`      | `.`         | (custom)    | unchanged? |
 | ...           |           |             |             |            |
 
-Note: up and down text objects are captured with the help of [indices](#real-lines).
-
 Below is an illustration of cursor movements and `d`-commands involving them
-that are different from (but more intuvitive than) how Vim behaves.
+that are different from how Vim behaves (but perhaps more intuvitive).
 
 Also note that the position of cursor _block_ does not play any role in
 determining the outcome of `d`-commands.
 
-![Cursor movements](https://teenyhop.github.io/editor-design/cursor.svg)
+![Cursor movements](https://johncf.github.io/editor-design/cursor.svg)
 
 ## Regular expressions
 
@@ -241,9 +205,8 @@ The Shell will provide two simple mechanisms involving regular expressions:
 
 Apart from these, the user must be encouraged to use external tools such as
 `awk` or `sed`. To that end, the user may be provided with a feature to
-"preview" such commands. A "preview" is just a non-blocking way to partially
-view the processed result, also trying to minimize the execution by reading in
-only just enough to fill the current frame (then kill/suspend the subprocess).
+"preview" such commands. A "preview" is just a partial view the processed
+result in order to minimize execution time while editing the command.
 
 ## Performance improvements through indexing
 
@@ -269,23 +232,13 @@ The indices will be coarse grained or non-existent as we move farther from the
 Cursor. We will be making a few approximations in case we need data from those
 parts of the buffer.
 
-### Real lines
+### Line breaks
 
-A real line is a range of text that appears between two line-breaks or between
-a line-break and the beginning/end of file.
-
-- State: Nil
-- Data: Total width?
-
-### Virtual lines
-
-A virtual line is a range of text that is type-set in a single row.
-
-- State: Relative byte offset to a character in the same (real) line which is
-         rendered at column 0
-- Data: Character offset (w.r.t the first character in the line)
+Text should either be structured for easy line-separability (within core).
 
 ### Bracket pairs
+
+A (partial?) index of bracket pairs may be possible within shell.
 
 - State: Nil
 - Data: Offset of the matching pair
@@ -299,7 +252,7 @@ json file, or something similar.
 
 ### Syntax highlighting
 
-- State: Something regarding the state of the parser
+- State: The state of the parser
 - Data: Highlight group
 
 This part is very open ended and really depends on the type of parser used.
@@ -309,22 +262,15 @@ table to determine the type of an identifier, etc.).
 
 ## Plugin architecture
 
-There are two types of plugins:
-
-- **Core plugin**: Synchronous hooks - compiled along with core
-- **Shell plugin**: Asynchronous - dynamically loaded through scripts
-
-Maintain a centralized index of plugins, and also an option to download a
-pre-compiled binary of custom combination of core plugins (through on-demand
-compilation and caching?).
+All plugins should be implemented on top of the shell. Having a centralized
+index of plugins may help in defining dependency relationships. Dependencies
+should possibly be defined using capabilities (which should also be indexed).
 
 ### Capabilities
 
-Also maintain a centralized index of (versioned) _capabilities_. A capability
-defines an interface through which a certain task can be accomplished. A plugin
-may provide zero or more capabilities. Thus capabilities are a layer through
-which plugins may interact with and exploit each other. Capability is a concept
-existing only in the Shell.
+A capability defines an interface through which a certain task can be
+accomplished. A plugin may provide zero or more capabilities. Thus capabilities
+are a layer through which plugins may interact with and exploit each other.
 
 ## Other design articles
 
