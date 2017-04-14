@@ -21,8 +21,10 @@ Blueprints of an imaginary text editor!
   - [Virtual lines](#virtual-lines)
   - [Bracket pairs](#bracket-pairs)
   - [Syntax highlighting](#syntax-highlighting)
-- [Plugin architecture](#plugin-architecture)
+- [Features of Shell](#features-of-shell)
+  - [Plugins](#plugins)
   - [Capabilities](#capabilities)
+  - [Dummy Lines](#dummy-lines)
 - [Other design articles](#other-design-articles)
 
 ## Introduction
@@ -260,17 +262,32 @@ Furthermore, this component can be swapped with a language-specific semantic
 checker to provide very rich highlighting (e.g. highlight errors, using symbol
 table to determine the type of an identifier, etc.).
 
-## Plugin architecture
+## Features of Shell
 
-All plugins should be implemented on top of the shell. Having a centralized
-index of plugins may help in defining dependency relationships. Dependencies
-should possibly be defined using capabilities (which should also be indexed).
+### Plugins
+
+All plugins should be implemented on top of the Shell. Plugins are run on a
+different process, and use IPC for all communication. Provide a wrapper API and
+a "plugin host" for popular languages such as Python so that simpler plugins
+which extends only a few aspects of the shell can be easily implemented (similar
+to Sublime Text 3). Plugins can also be independent processes that need to be
+spawned by the Shell, or are listening on a TCP address.
+
+To help discover plugins, keep a centralized index of plugins. Dependencies
+should possibly be defined using Capabilities (which are also indexed).
 
 ### Capabilities
 
-A capability defines an interface through which a certain task can be
-accomplished. A plugin may provide zero or more capabilities. Thus capabilities
-are a layer through which plugins may interact with and exploit each other.
+A capability defines plugin APIs for certain tasks. A plugin may be a provider
+of zero or more capabilities. Thus capabilities are a layer through which
+plugins may interact and compose with each other.
+
+### Dummy Lines
+
+These are lines which are inserted between the buffer contents but are
+completely managed by (a plugin via) the Shell. These lines are not editable by
+the user. This feature may be used by diff-plugins, compiler-plugins, and the
+like. This can be extended to Dummy Buffers which completely bypasses the Core.
 
 ## Other design articles
 
