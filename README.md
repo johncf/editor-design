@@ -16,9 +16,8 @@ Blueprints of an imaginary text editor!
 - [The Cursor](#the-cursor)
   - [The Cursor Block](#the-cursor-block)
 - [Text Objects and Cursor motion](#text-objects-and-cursor-motion)
-- [Regular expressions](#regular-expressions)
-- [Performance improvements through indexing](#performance-improvements-through-indexing)
-  - [Virtual lines](#virtual-lines)
+- [Regular Expressions](#regular-expressions)
+- [Performance Optimizations](#performance-optimizations)
   - [Bracket pairs](#bracket-pairs)
   - [Syntax highlighting](#syntax-highlighting)
 - [Features of Shell](#features-of-shell)
@@ -197,7 +196,7 @@ determining the outcome of `d`-commands.
 
 ![Cursor movements](https://johncf.github.io/editor-design/cursor.svg)
 
-## Regular expressions
+## Regular Expressions
 
 The Shell will provide two simple mechanisms involving regular expressions:
 
@@ -210,7 +209,11 @@ Apart from these, the user must be encouraged to use external tools such as
 "preview" such commands. A "preview" is just a partial view the processed
 result in order to minimize execution time while editing the command.
 
-## Performance improvements through indexing
+## Performance Optimizations
+
+Certain details about the buffer may be indexed by the Shell to boost
+performance. These should be implemented only if the performance is measurably
+affected.
 
 An entry in an index has four major fields:
 
@@ -233,10 +236,6 @@ was indexed.
 The indices will be coarse grained or non-existent as we move farther from the
 Cursor. We will be making a few approximations in case we need data from those
 parts of the buffer.
-
-### Line breaks
-
-Text should either be structured for easy line-separability (within core).
 
 ### Bracket pairs
 
