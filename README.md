@@ -64,14 +64,14 @@ The editor has two main components: Core and Shell.
 
 ### Concerns of Core
 
-- Manage a single file
-  - File IO: concerning the actual file, and its swap and undo files
-  - [Buffer management](#buffer-management)
+- [Buffer management](#buffer-management)
+- Handle text editing operations: insert, delete
+- Handle history operations: undo, redo
+- File IO: concerning the actual file, and its swap and undo files
 - Serve buffer contents in chunks on-demand.
   - When the shell requests for a range of lines, it may specify a maxlength,
     to avoid fetching huge lines at once.
 - Serving buffer summaries such as number of lines, codepoint count per line
-- Text editing operations: insert, delete, undo, redo
 
 ### Concerns of Shell
 
