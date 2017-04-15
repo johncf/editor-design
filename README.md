@@ -18,7 +18,7 @@ Blueprints of an imaginary text editor!
 - [Text Objects and Cursor motion](#text-objects-and-cursor-motion)
 - [Regular Expressions](#regular-expressions)
 - [Performance Optimizations](#performance-optimizations)
-  - [Line Wraps](#line-wraps)
+  - [Scroll Bars](#scroll-bars)
   - [Syntax highlighting](#syntax-highlighting)
 - [Features of Shell](#features-of-shell)
   - [Plugins](#plugins)
@@ -77,12 +77,6 @@ The editor has two main components: Core and Shell.
 
 - Typesetting and rendering
 - Cursor movements, text selection, and scrolling
-  - Vertical scroll-bars need only reflect the number of lines, even if
-    text-wrapping is enabled.
-    - Mouse-wheel scrolling, cursor movements, or scroll-bar arrow-keys may be
-      used for finer control.
-    - Scroll-bar thumb may be disabled when handling huge files with just a
-      single line (or too few lines).
 - User input handling
   - Key mappings (The Core has no concept of keys)
   - Macros
@@ -219,7 +213,16 @@ The data structure of the index should enable efficient (and possibly lazy)
 updates. Laziness is useful when stale entries may be used to speculate the
 actual values (which is often the case).
 
-### Line Wraps
+### Scroll Bars
+
+The baseline scrolling may be behave as described below:
+
+- Vertical scroll-bars need only reflect the number of lines, even if
+  text-wrapping is enabled.
+- Mouse-wheel scrolling, cursor movements, or scroll-bar arrow-keys may be used
+  for finer control.
+- Scroll-bar thumb may be disabled when handling huge files with just a single
+  line (or too few lines).
 
 For smooth scrolling, the scroll-height value must be based on the actual
 number of rows needed to render the whole lines which is hard to calculate when
