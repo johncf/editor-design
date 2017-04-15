@@ -18,7 +18,7 @@ Blueprints of an imaginary text editor!
 - [Text Objects and Cursor motion](#text-objects-and-cursor-motion)
 - [Regular Expressions](#regular-expressions)
 - [Performance Optimizations](#performance-optimizations)
-  - [Bracket pairs](#bracket-pairs)
+  - [Line Wraps](#line-wraps)
   - [Syntax highlighting](#syntax-highlighting)
 - [Features of Shell](#features-of-shell)
   - [Plugins](#plugins)
@@ -211,7 +211,7 @@ result in order to minimize execution time while editing the command.
 
 ## Performance Optimizations
 
-Certain details about the buffer may be indexed by the Shell to boost
+Certain details about the buffer may be indexed (cached) by the Shell to boost
 performance. These should be implemented only if the performance is measurably
 affected.
 
@@ -237,21 +237,27 @@ The indices will be coarse grained or non-existent as we move farther from the
 Cursor. We will be making a few approximations in case we need data from those
 parts of the buffer.
 
-### Bracket pairs
+### Line Wraps
 
-A (partial?) index of bracket pairs may be possible within shell.
+For smooth scrolling, the scroll-height value must be based on the actual
+number of rows needed to render the whole lines which is hard to calculate when
+text-wrapping is enabled. So caching this information might be useful. If the
+file is too big, we may defer processing the entire file, and insted speculate
+the number of rows needed based on the lines that were processed, and the
+actual render widths may be calculated when the cursor approaches them. For
+each line store:
 
-- State: Nil
-- Data: Offset of the matching pair
+    render_width, num_rows, window_width, buffer_version
 
-To check whether an entry is valid/useful in the current version, check whether
-any changes were made between the bracket pair and if so, check whether the
-changes tinkered with brackets (of same type).
+Note: Tab characters may mess with render width speculations.
 
-Indexing bracket pairs may not be worth the effort unless we are handling large
-json file, or something similar.
+This cached list should not be updated every time something changes globally
+(such as window-width or tab-width). This whole deal is just to get an
+approximate scroll height. Once the list is constructed, it should only be
+updated when text is actually rendered (at which point, adjust the
+scroll-height too if necessary).
 
-### Syntax highlighting
+### Syntax Highlighting
 
 - State: The state of the parser
 - Data: Highlight group
