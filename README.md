@@ -212,30 +212,12 @@ result in order to minimize execution time while editing the command.
 ## Performance Optimizations
 
 Certain details about the buffer may be indexed (cached) by the Shell to boost
-performance. These should be implemented only if the performance is measurably
-affected.
+performance. These should be implemented only if the performance can be
+provably improved.
 
-An entry in an index has four major fields:
-
-- Offset: Byte offset of this entry from the beginning of file
-- Version: Version of the buffer using which this entry was created
-- State: The state of the parser or something when this entry was created
-- Data: Something useful
-
-When some text is added or deleted from the buffer, the data structure of the
-index should be such that offsets can be efficiently updated. The entries
-following the point of change need not be deleted. In fact, a few consecutive
-changes in text might make most of the indexed data useful again (for example,
-opening a curly brace, entering some text and then closing it later, without
-affecting other pairings).
-
-This is why we need the State entry to make the indexing lazy. Before using the
-Data, check if the current state at that offset is indeed the same as when it
-was indexed.
-
-The indices will be coarse grained or non-existent as we move farther from the
-Cursor. We will be making a few approximations in case we need data from those
-parts of the buffer.
+The data structure of the index should enable efficient (and possibly lazy)
+updates. Laziness is useful when stale entries may be used to speculate the
+actual values (which is often the case).
 
 ### Line Wraps
 
@@ -259,6 +241,10 @@ scroll-height too if necessary).
 
 ### Syntax Highlighting
 
+Four useful fields per cache entry:
+
+- Offset: Byte offset of this entry from the beginning of file
+- Version: Version of the buffer using which this entry was created
 - State: The state of the parser
 - Data: Highlight group
 
