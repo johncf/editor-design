@@ -14,8 +14,8 @@ Blueprints of an imaginary text editor!
 - [Buffer management](#buffer-management)
   - [Handling huge files using `mmap`-ed buffers](#handling-huge-files-using-mmap-ed-buffers)
 - [The Cursor](#the-cursor)
-  - [The Cursor Block](#the-cursor-block)
-- [Text Objects and Cursor motion](#text-objects-and-cursor-motion)
+  - [Vim-like implementation](#vim-like-implementation)
+  - [Text Objects and Cursor motion](#text-objects-and-cursor-motion)
 - [Regular Expressions](#regular-expressions)
 - [Performance Optimizations](#performance-optimizations)
   - [Scroll Bars](#scroll-bars)
@@ -54,7 +54,6 @@ This repository is [dedicated to the public domain (CC0)](LICENSE).
 - Buffer: Represents the contents of the file being edited.
 - Core: The component which handles raw text and file operations.
 - Shell: The user interface.
-- Codepoint: Unicode [code point](https://en.wikipedia.org/wiki/Code_point).
 
 ## Architecture overview
 
@@ -71,7 +70,7 @@ The editor has two main components: Core and Shell.
 - Serve buffer contents in chunks on-demand.
   - When the shell requests for a range of lines, it may specify a maxlength,
     to avoid fetching huge lines at once.
-- Serving buffer summaries such as number of lines, codepoint count per line
+- Serving buffer summaries such as number of lines, byte-count per line
 
 ### Concerns of Shell
 
@@ -120,36 +119,28 @@ way, intermittent file-save operations can be very quick.
 
 ## The Cursor
 
-The cursor has two basic states: Insert and Select. Additional modes such as
-Normal, Visual, Operator modes as defined in Vim may be added on top of these
-two basic states.
+The cursor is a concept defined by the Shell. It is minimally represented by a
+value: `(s, e)` where both `s` and `e` represent byte-offsets from the
+beginning of the file and `s` is the start of the selection, and `e` is the end
+of selection. `(s=0, e=0)` represent the cursor placed before the first byte.
 
-The cursor is defined to be a byte range `(offset, length)`, with the
-restriction that the endpoints must be at a codepoint boundary. `length` is the
-number of codepoints in selection starting from `offset`.
+In addition to the raw value, the shell exposes two UI components for the
+cursor: the cursor line and the cursor block. How or whether they are shown can
+all be customized by plugins. The default implementation is described below.
 
-`(0, 0)` means that the cursor is positioned before the first byte.
+### Vim-like implementation
 
-In Insert mode, `length` is always equal to `0`.
-
-In Select mode, the active end, where the cursor movements are applied, is at
-`offset + length`. Thus it is valid for `length` to be negative.
-
-### The Cursor Block
-
-This is an optional feature that may be implemented by Vim-like shells.
+The cursor has four basic states: Insert, Select, Normal and Visual.
 
 In Insert/Normal mode, the Cursor Block marks the character that is focused by
 the Cursor, on which character-wise operations are applied. Depending on
 context, it may be to right of the Cursor, or to the left. We will discuss more
-about this in Text Objects section.
+about this in the next sub-section.
 
 In Select/Visual mode, the Cursor Block has no functional significance, and is
-always placed inside the range at the active end (note: `length != 0`). Also
-note that when `length` changes from 1 to -1 or vice versa, the Block moves
-only by one column.
+always placed inside the range at the active end of the selection span.
 
-## Text Objects and Cursor motion
+### Text Objects and Cursor motion
 
 A text object is a range of text whose contents/endpoints are constrained by
 certain rules. The text objects discussed in this section are located near or
@@ -161,11 +152,11 @@ regular expression.
 When "Start" or "End" is `.`, it can be used to define a cursor motion. If
 "Start" is `.`, the cursor moves forward, and otherwise, backwards. "Block pos"
 is the position of Cursor Block relative to the Cursor, after the movement has
-been made. Cursor block prefers to be on the right of the cursor. There is
-only one built-in command that depends on the position of the cursor block: `r`
-(Note: `s` is redundant and not defined, but `a` could be defined as `i` if
-cursor block is on the left and `li` otherwise). _All_ other commands work
-based on the cursor position alone.
+been made. Cursor block prefers to be on the right of the cursor. There are two
+built-in commands that depend on the position of the cursor block: `r` and `a`
+(Note: `s` is redundant and not defined; `a` is the same as `i` if cursor block
+is on the left and `li` otherwise). _All_ other commands work based on the
+cursor position alone.
 
 | Text object   | Keymap    | Start       | End         | Block pos  |
 |---------------|-----------|-------------|-------------|------------|
