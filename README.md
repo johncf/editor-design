@@ -161,9 +161,11 @@ regular expression.
 When "Start" or "End" is `.`, it can be used to define a cursor motion. If
 "Start" is `.`, the cursor moves forward, and otherwise, backwards. "Block pos"
 is the position of Cursor Block relative to the Cursor, after the movement has
-been made. Cursor block prefers to be on the right of the cursor. There are
-only 3 default commands that depends on the position of the cursor block: `x`,
-`s`, and `r`. _All_ other commands work based on the cursor position alone.
+been made. Cursor block prefers to be on the right of the cursor. There is
+only one built-in command that depends on the position of the cursor block: `r`
+(Note: `s` is redundant and not defined, but `a` could be defined as `i` if
+cursor block is on the left and `li` otherwise). _All_ other commands work
+based on the cursor position alone.
 
 | Text object   | Keymap    | Start       | End         | Block pos  |
 |---------------|-----------|-------------|-------------|------------|
@@ -175,10 +177,12 @@ only 3 default commands that depends on the position of the cursor block: `x`,
 | find-char-rev | `F{char}` | `/{char}/s` | `.`         | right      |
 | till-char     | `t{char}` | `.`         | `/{char}/s` | left       |
 | till-char-rev | `T{char}` | `/{char}/e` | `.`         | right      |
-| left          | `h`       | `/./s`      | `.`         | right      |
-| right         | `l`       | `.`         | `/./e`      | right      |
-| line-up       | `k`       | (custom)    | `.`         | right      |
-| line-down     | `j`       | `.`         | (custom)    | right      |
+| char-left     | `h`       | `/./s`      | `.`         | right      |
+| char-right    | `l`       | `.`         | `/./e`      | right      |
+| line-up       | `k`       | (custom)    | (custom)    | right      |
+| line-down     | `j`       | (custom)    | (custom)    | right      |
+| line-prefix   | `^`       | `/^/`       | `.`         | right      |
+| line-suffix   | `$`       | `.`         | `/$/`       | left       |
 | row-up        | `gk`      | (custom)    | `.`         | right      |
 | row-down      | `gj`      | `.`         | (custom)    | right      |
 | word-inner    | `<op>iw`  | `/\b\w/s`   | `/\w\b/e`   |            |
