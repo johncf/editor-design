@@ -161,7 +161,9 @@ regular expression.
 When "Start" or "End" is `.`, it can be used to define a cursor motion. If
 "Start" is `.`, the cursor moves forward, and otherwise, backwards. "Block pos"
 is the position of Cursor Block relative to the Cursor, after the movement has
-been made.
+been made. Cursor block prefers to be on the right of the cursor. There are
+only 3 default commands that depends on the position of the cursor block: `x`,
+`s`, and `r`. _All_ other commands work based on the cursor position alone.
 
 | Text object   | Keymap    | Start       | End         | Block pos  |
 |---------------|-----------|-------------|-------------|------------|
@@ -169,26 +171,25 @@ been made.
 | word-rev      | `b`       | `/\b\w/s`   | `.`         | right      |
 | word-end      | `e`       | `.`         | `/\w\b/e`   | left       |
 | word-end-rev  | `ge`      | `/\w\b/e`   | `.`         | left       |
-| word-inner    | `<op>iw`  | `/\b\w/s`   | `/\w\b/e`   | (NA)       |
 | find-char     | `f{char}` | `.`         | `/{char}/e` | left       |
 | find-char-rev | `F{char}` | `/{char}/s` | `.`         | right      |
 | till-char     | `t{char}` | `.`         | `/{char}/s` | left       |
 | till-char-rev | `T{char}` | `/{char}/e` | `.`         | right      |
-| left          | `h`       | `/./s`      | `.`         | unchanged? |
-| right         | `l`       | `.`         | `/./e`      | unchanged? |
-| up            | `k`       | (custom)    | `.`         | unchanged? |
-| down          | `j`       | `.`         | (custom)    | unchanged? |
-| up-virt       | `gk`      | (custom)    | `.`         | unchanged? |
-| down-virt     | `gj`      | `.`         | (custom)    | unchanged? |
+| left          | `h`       | `/./s`      | `.`         | right      |
+| right         | `l`       | `.`         | `/./e`      | right      |
+| line-up       | `k`       | (custom)    | `.`         | right      |
+| line-down     | `j`       | `.`         | (custom)    | right      |
+| row-up        | `gk`      | (custom)    | `.`         | right      |
+| row-down      | `gj`      | `.`         | (custom)    | right      |
+| word-inner    | `<op>iw`  | `/\b\w/s`   | `/\w\b/e`   |            |
 | ...           |           |             |             |            |
 
 Below is an illustration of cursor movements and `d`-commands involving them
 that are different from how Vim behaves (but perhaps more intuvitive).
 
-Also note that the position of cursor _block_ does not play any role in
-determining the outcome of `d`-commands.
-
 ![Cursor movements](https://johncf.github.io/editor-design/cursor.svg)
+
+Note: `d`-commands are not affected by the position of cursor block.
 
 ## Regular Expressions
 
