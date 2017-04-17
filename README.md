@@ -120,12 +120,20 @@ way, intermittent file-save operations can be very quick.
 ## The Cursor
 
 The cursor is a concept defined by the Shell. It is minimally represented by a
-value: `(s, e)` where both `s` and `e` represent byte-offsets from the
-beginning of the file and `s` is the start of the selection, and `e` is the end
-of selection. `(s=0, e=0)` represent the cursor placed before the first byte.
+tuple: `(l, o)` where `l` is the line number and `o` is the byte-offset on the
+line. When a selection is being made, an additional tuple is needed to
+represent the other end of the selection. To generalize, a cursor can be
+thought of as a span from `(l1, o1)` to `(l2, o2)` where `*1 = *2` when no text
+selection is made.
+
+Multiple cursors may be implemented by allowing a set of disjoint spans to
+co-exist. Keep in mind that allowing user to easily create a thousands of
+cursors might result in a significant slow-down. The weaker solution of
+rectangular selection (visual-block) in Vim would likely perform much better in
+cases applicable to both.
 
 In addition to the raw value, the shell exposes two UI components for the
-cursor: the cursor line and the cursor block. How or whether they are shown can
+cursor: the cursor beam and the cursor block. How or whether they are shown can
 all be customized by plugins. The default implementation is described below.
 
 ### Vim-like implementation
