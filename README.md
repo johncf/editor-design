@@ -90,15 +90,15 @@ The editor has two main components: Core and Shell.
 The data structure used to represent and manage text is the very core of an
 editor. The following design was heavily influenced by [the CRDT model][].
 
-The text data, along with the history of changes will be captured by the
-following four entities:
+The buffer contents, along with the history of changes, will be captured by the
+following entities:
 
 - _A versioned Text Wall,_ which is an ever-growing (never-shrinking) sequence
   of characters, where any text insertions are inserted into Text Wall
-  "in-context" and text deletions are ignored. This is probably best represented
-  by a [persistent rope-like data structure][rope-wiki].
-- _A strictly linear history of Text Wall,_ which sequence of revision ids and
-  the corresponding interval(s) of inserted text. This will be used for
+  "in-context" and text deletions ignored. This is probably best represented by
+  a [persistent rope-like data structure][rope-wiki].
+- _A strictly linear history of Text Wall,_ which is a sequence of revision ids
+  and the corresponding interval(s) of inserted text. This will be used for
   computing the index position w.r.t the latest revision of Text Wall, given an
   index w.r.t a past version of the wall.
 - _A mask on Text Wall,_ which represents the actual buffer contents. A mask is
@@ -110,6 +110,15 @@ following four entities:
 
 [the CRDT model]: https://github.com/google/xi-editor/blob/6683f20/doc/crdt.md
 [rope-wiki]: https://en.wikipedia.org/wiki/Rope_(data_structure)
+
+Text Wall needs to sophisticated enough to be shared concurrently. The other
+three data structures have much simpler design requirements since there need to
+be only a single version to be maintained at a time as they are not meant to be
+concurrently accessed.
+
+This will enable implementing persistent undos feature very straight-forward,
+but truncating undos to a few hundred actions so as to shrink an over-sized Text
+Wall might be expensive.
 
 ### Handling huge files using `mmap`-ed buffers
 
