@@ -88,23 +88,27 @@ The editor has two main components: Core and Shell.
 ## Buffer management
 
 The data structure used to represent and manage text is the very core of an
-editor. It should be so designed as to provide these two features:
+editor. The following design was heavily influenced by [the CRDT model][].
 
-- Efficient and threadsafe snapshots: for processing text concurrently
+The text data, along with the history of changes will be captured by the
+following four entities:
 
-A copy-on-write [Rope][rope-wiki]-like data structure might be the best to
-represent the contents of a file. All text (including all history of changes)
-should be stored in a single thread-safe, append-only list (TODO describe), and
-the leaves of the rope should just store offsets in the list and length of the
-chunk, except when size of the chunk is less than 16 bytes which may be
-directly embedded. Reasons for the choice:
+- _A versioned Text Wall,_ which is an ever-growing (never-shrinking) sequence
+  of characters, where any text insertions are inserted into Text Wall
+  "in-context" and text deletions are ignored. This is probably best represented
+  by a [persistent rope-like data structure][rope-wiki].
+- _A strictly linear history of Text Wall,_ which sequence of revision ids and
+  the corresponding interval(s) of inserted text. This will be used for
+  computing the index position w.r.t the latest revision of Text Wall, given an
+  index w.r.t a past version of the wall.
+- _A mask on Text Wall,_ which represents the actual buffer contents. A mask is
+  tied to a specific revision of Text Wall, and contains a sequence of intervals
+  which "masks" Text Wall to obtain the buffer contents at that point.
+- _An undo-tree of actions on the buffer,_ where an action is a set of `show`-s
+  and `hide`-s.  A `show` or a `hide` is a change brought to the previous
+  version of the mask.
 
-- Create thread-safe view of the contents with O(1) cost
-- Having almost all chunks being represented using an offset and length, diff
-  of two versions in history can be found in roughly O(n^2) space and time with
-  a slightly modified LCS algorithm, where n is the number of chunks in the
-  rope (not file size).
-
+[the CRDT model]: https://github.com/google/xi-editor/blob/6683f20/doc/crdt.md
 [rope-wiki]: https://en.wikipedia.org/wiki/Rope_(data_structure)
 
 ### Handling huge files using `mmap`-ed buffers
