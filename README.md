@@ -60,31 +60,33 @@ This repository is [dedicated to the public domain (CC0)](LICENSE).
 
 ![Architecture diagram](img/arch.svg)
 
-### Concerns of Core
+### Concerns of The Core
 
 - [Text management](#text-management)
 - Handle text editing operations: insert, delete
 - Handle history operations: undo, redo
-- File IO: concerning the actual file, and its swap and undo files
-- Serve buffer contents in chunks on-demand.
-  - When the shell requests for a range of lines, it may specify a maxlength,
-    to avoid fetching huge lines at once.
-- Serving buffer summaries such as number of lines, byte-count per line
+- File I/O of the actual file, and its backup/history file
+  - This should perhaps be made customizable to allow plugins to provide support
+    for new protocols.
+- Serve text in chunks on-demand.
 
-### Concerns of Shell
+### Concerns of The Shell
 
 - Buffer management
   - The Core is part of each buffer
-- Typesetting and rendering
-- Cursor movements, text selection, and scrolling
-- User input handling
-  - Key mappings (The Core has no concept of keys)
-  - Macros
-- Syntax highlighting
-  - Parser implemented as a separate independent component
-- Text completion
+- Cursor book-keeping: cursor position, text selection
+- Scrolling book-keeping: total lines, line wraps, visible text
+- Key mappings (incl. macros)
+- Extensions management
+  - Communication with external plugins
+  - Syntax highlighting
+  - Text completion
 - Search and replace
-- Integration with external tools
+
+### Concerns of The Skin
+
+- Text rendering (incl. typesetting)
+- User input handling
 
 ## Text management
 
@@ -98,28 +100,30 @@ following entities:
   of characters, where any text insertions are inserted into Text Wall
   "in-context" and text deletions ignored. This is probably best represented by
   a [persistent rope-like data structure][rope-wiki].
-- _A strictly linear history of Text Wall,_ which is a sequence of revision ids
-  and the corresponding interval(s) of inserted text. This will be used for
-  computing the index position w.r.t the latest revision of Text Wall, given an
-  index w.r.t a past version of the wall.
-- _A mask on Text Wall,_ which represents the actual buffer contents. A mask is
+- _A linear history of Text Wall,_ which is a sequence of revision ids and the
+  corresponding interval(s) of inserted text. This will be used for computing
+  the index position w.r.t the latest revision of Text Wall, given an index
+  w.r.t a past version of the wall.
+- _Text Wall Mask,_ which represents the actual buffer contents. A mask is
   tied to a specific revision of Text Wall, and contains a sequence of intervals
   which "masks" Text Wall to obtain the buffer contents at that point.
-- _An undo-tree of actions on the buffer,_ where an action is a set of `show`-s
-  and `hide`-s.  A `show` or a `hide` is a change brought to the previous
-  version of the mask.
+- _A linear history of actions on the buffer,_ where an action is a set of
+  `show`-s and `hide`-s.  A `show` or a `hide` is a change brought to the
+  previous version of the mask. When a sequence of undos is followed by an edit
+  operation, squash those undo actions into one history action followed by a
+  negative of that action, and apply the edit operation on top of it.
 
 [the CRDT model]: https://github.com/google/xi-editor/blob/6683f20/doc/crdt.md
 [rope-wiki]: https://en.wikipedia.org/wiki/Rope_(data_structure)
 
-Text Wall needs to sophisticated enough to be shared concurrently. The other
-three data structures have much simpler design requirements since there need to
-be only a single version to be maintained at a time as they are not meant to be
-concurrently accessed.
+Text Wall and Text Wall Mask need to sophisticated enough to be shared
+concurrently (in a copy-on-write manner). The other two data structures might
+not require these features, since only a single version of them would need to
+exist at any point.
 
 This will enable implementing persistent undos feature very straight-forward,
 but truncating undos to a few hundred actions so as to shrink an over-sized Text
-Wall might be expensive.
+Wall might be expensive, unless some additional indexing is performed.
 
 ### Handling huge files using `mmap`
 
@@ -233,14 +237,13 @@ actual values (which is often the case).
 
 ### Scroll Bars
 
-The baseline scrolling may be behave as described below:
+For starters, below is a simple scrollbar algorithm:
 
-- Vertical scroll-bars need only reflect the number of lines, even if
+- Vertical scroll-bars need to only reflect the number of lines, even if
   text-wrapping is enabled.
-- Mouse-wheel scrolling, cursor movements, or scroll-bar arrow-keys may be used
-  for finer control.
-- Scroll-bar thumb may be disabled when handling huge files with just a single
-  line (or too few lines).
+- Mouse-wheel or keyboard cursor movements may be used for finer control.
+
+TODO describe the new design (below is an outdated design)
 
 For smooth scrolling, the scroll-height value must be based on the actual
 number of rows needed to render the whole lines which is hard to calculate when
@@ -300,6 +303,14 @@ These are lines which are inserted between the buffer contents but are
 completely managed by (a plugin via) the Shell. These lines are not editable by
 the user. This feature may be used by diff-plugins, compiler-plugins, and the
 like. This can be extended to Dummy Buffers which completely bypasses the Core.
+
+## API
+
+### The Core
+
+### The Shell
+
+### The Skin
 
 ## Other design articles
 
