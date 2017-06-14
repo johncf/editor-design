@@ -11,8 +11,8 @@ Blueprints of an imaginary text editor!
 - [Architecture overview](#architecture-overview)
   - [Concerns of Core](#concerns-of-core)
   - [Concerns of Shell](#concerns-of-shell)
-- [Buffer management](#buffer-management)
-  - [Handling huge files using `mmap`-ed buffers](#handling-huge-files-using-mmap-ed-buffers)
+- [Text management](#text-management)
+  - [Handling huge files using `mmap`](#handling-huge-files-using-mmap)
 - [The Cursor](#the-cursor)
   - [Vim-like implementation](#vim-like-implementation)
   - [Text Objects and Cursor motion](#text-objects-and-cursor-motion)
@@ -31,7 +31,7 @@ Blueprints of an imaginary text editor!
 This was born out of the fascination I have towards text editors and see how I
 would design one, borrowing many great ideas from our vast universe. The focus
 was on making the whole thing as asynchronous and non-blocking as possible, and
-consequently allowing stuff to be run in parallel.
+consequently support concurrent jobs (plugins).
 
 This repository is [dedicated to the public domain (CC0)](LICENSE).
 
@@ -39,31 +39,30 @@ This repository is [dedicated to the public domain (CC0)](LICENSE).
 
 ## Design Goals
 
-- Reliable: don't lose stuff
-- Responsive: non-blocking
-- Modular: independent modules with clean interfaces
-- Extensible: where the fun begins!
+- Reliability - Zero risk of losing data
+- Responsive - Zero blocking operations (at worst, jobs must be interruptible)
+- Modular - Largely decoupled modules with clear, well-documented interfaces
+- Extensible - Easily customizable with plugins
 
 ## Non-goals
 
-- Define a new scripting language
-- Support for proportional font rendering
+- 100% accurate rendering of complex Unicode scripts
+- In-process extensions through a scripting language
 
 ## Terminology
 
-- Buffer: Represents the contents of the file being edited.
-- Core: The component which handles raw text and file operations.
-- Shell: The user interface.
+- **A Buffer** represents the contents of the file being edited.
+- **The Core** handles text in a buffer along with its history.
+- **The Shell** is the glue between the user interface, plugins and buffers.
+- **The Skin** is the user interface.
 
 ## Architecture overview
 
-The editor has two main components: Core and Shell.
-
-![Architecture diagram](https://johncf.github.io/editor-design/arch.svg)
+![Architecture diagram](img/arch.svg)
 
 ### Concerns of Core
 
-- [Buffer management](#buffer-management)
+- [Text management](#text-management)
 - Handle text editing operations: insert, delete
 - Handle history operations: undo, redo
 - File IO: concerning the actual file, and its swap and undo files
@@ -74,6 +73,8 @@ The editor has two main components: Core and Shell.
 
 ### Concerns of Shell
 
+- Buffer management
+  - The Core is part of each buffer
 - Typesetting and rendering
 - Cursor movements, text selection, and scrolling
 - User input handling
@@ -85,7 +86,7 @@ The editor has two main components: Core and Shell.
 - Search and replace
 - Integration with external tools
 
-## Buffer management
+## Text management
 
 The data structure used to represent and manage text is the very core of an
 editor. The following design was heavily influenced by [the CRDT model][].
@@ -120,7 +121,7 @@ This will enable implementing persistent undos feature very straight-forward,
 but truncating undos to a few hundred actions so as to shrink an over-sized Text
 Wall might be expensive.
 
-### Handling huge files using `mmap`-ed buffers
+### Handling huge files using `mmap`
 
 Having an in-memory representation of all text, when handling huge files, could
 be cumbersome. Therefore the user should be presented with the choice of using
@@ -203,7 +204,7 @@ cursor position alone.
 Below is an illustration of cursor movements and `d`-commands involving them
 that are different from how Vim behaves (but perhaps more intuvitive).
 
-![Cursor movements](https://johncf.github.io/editor-design/cursor.svg)
+![Cursor movements](img/cursor.svg)
 
 Note: `d`-commands are not affected by the position of cursor block.
 
