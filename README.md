@@ -9,21 +9,23 @@ Blueprints of an imaginary text editor!
 - [Non-goals](#non-goals)
 - [Terminology](#terminology)
 - [Architecture overview](#architecture-overview)
-  - [Concerns of Core](#concerns-of-core)
-  - [Concerns of Shell](#concerns-of-shell)
+  - [Concerns of the Shell](#concerns-of-the-shell)
+  - [Concerns of a Buffer](#concerns-of-a-buffer)
+  - [Concerns of the Filer](#concerns-of-the-filer)
+  - [Concerns of the Skin](#concerns-of-the-skin)
 - [Text management](#text-management)
   - [Handling huge files using `mmap`](#handling-huge-files-using-mmap)
 - [The Cursor](#the-cursor)
   - [Vim-like implementation](#vim-like-implementation)
   - [Text Objects and Cursor motion](#text-objects-and-cursor-motion)
 - [Regular Expressions](#regular-expressions)
-- [Performance Optimizations](#performance-optimizations)
-  - [Scroll Bars](#scroll-bars)
-  - [Syntax highlighting](#syntax-highlighting)
-- [Features of Shell](#features-of-shell)
-  - [Plugins](#plugins)
-  - [Capabilities](#capabilities)
-  - [Dummy Lines](#dummy-lines)
+- [Scroll Bars](#scroll-bars)
+  - [With word-wrap (vertical scrolling)](#with-word-wrap-vertical-scrolling)
+  - [Without wrapping (horizontal scrolling)](#without-wrapping-horizontal-scrolling)
+- [Syntax highlighting](#syntax-highlighting)
+- [Plugins](#plugins)
+- [Capabilities](#capabilities)
+- [API](#api)
 - [Other design articles](#other-design-articles)
 
 ## Introduction
@@ -51,39 +53,42 @@ This repository is [dedicated to the public domain (CC0)](LICENSE).
 
 ## Terminology
 
-- **A Buffer** represents the contents of the file being edited.
-- **The Core** handles text in a buffer along with its history.
+- **Buffer** is a data structure that handles the most basic text and history
+  manipulations for a single file.
 - **The Shell** is the glue between the user interface, plugins and buffers.
+- **The Filer** is a component of the Shell which handles all disk I/O.
 - **The Skin** is the user interface.
 
 ## Architecture overview
 
 ![Architecture diagram](img/arch.svg)
 
-### Concerns of The Core
+### Concerns of the Shell
 
-- [Text management](#text-management)
-- Handle text editing operations: insert, delete
-- Handle history operations: undo, redo
-- File I/O of the actual file, and its backup/history file
-  - This should perhaps be made customizable to allow plugins to provide support
-    for new protocols.
-- Serve text in chunks on-demand.
-
-### Concerns of The Shell
-
-- Buffer management
-  - The Core is part of each buffer
+- Connect user interface with buffers
 - Cursor book-keeping: cursor position, text selection
 - Scrolling book-keeping: total lines, line wraps, visible text
 - Key mappings (incl. macros)
 - Extensions management
-  - Communication with external plugins
-  - Syntax highlighting
-  - Text completion
+  - Communication with external tools
+  - [Capability](#capabilities) assessment
+  - Syntax highlighting (via extensions)
+  - Text completion (via extensions)
 - Search and replace
 
-### Concerns of The Skin
+### Concerns of a Buffer
+
+- [Text management](#text-management)
+- Handle text editing operations: insert, delete
+- Handle history operations: undo, redo
+- Serve text in chunks on-demand.
+
+### Concerns of the Filer
+
+- Handle all disk I/O.
+- Run in a separate thread to avoid blocking.
+
+### Concerns of the Skin
 
 - Text rendering (incl. typesetting)
 - User input handling
@@ -214,7 +219,7 @@ Note: `d`-commands are not affected by the position of cursor block.
 
 ## Regular Expressions
 
-The Shell will provide two simple mechanisms involving regular expressions:
+The Shell will provide three simple mechanisms involving regular expressions:
 
 - Search
 - Search and replace
@@ -223,49 +228,85 @@ The Shell will provide two simple mechanisms involving regular expressions:
 Apart from these, the user must be encouraged to use external tools such as
 `awk` or `sed`. To that end, the user may be provided with a feature to
 "preview" such commands. A "preview" is just a partial view the processed
-result in order to minimize execution time while editing the command.
+result in order to minimize execution time while composing the command.
 
-## Performance Optimizations
+## Scroll Bars
 
-Certain details about the buffer may be indexed (cached) by the Shell to boost
-performance. These should be implemented only if the performance can be
-provably improved.
+For smooth scrolling, under the assumption that all rows of text have the same
+pixel height, we have two cases
+
+### With word-wrap (vertical scrolling)
+
+For each line, the Shell need to store the list of offsets where the line wraps
+(for lines with only very few points of wraps, the Shell may simply store the
+line numbers in a wrap-count-histogram list). This should be informed by the
+Skin to the Shell after laying out a line. When the width of the window or the
+font size changes, the Skin should inform the Shell of it so as to invalidate
+the wrap-points cache.
+
+There is no need to layout the entire text to estimate an approximate height of
+the whole text. Once a screen-full of text is rendered, calculate the average
+number of bytes per row (`n_ravg`), and the maximum number of bytes per row
+(`n_x`), then the expected number of additional line wraps is:
+
+    (n_bytes - n_lines*n_ravg)/n_m
+
+The scroll range is `(0, n_rtotal)` where `n_rtotal` is the total number of rows
+in the file. The current scroll value would be based on the current estimates of
+how many rows there are prior to the first line currently displayed.
+
+Now, regarding mapping between scroll value to text needed to be rendered.
+
+- The Skin asks the Shell for text at `k`th row.
+- The Shell replies with:
+  - A range of text that is estimated to be the start of that row (if that line
+    was previously rendered), or
+  - A range of text from the start of the line that is estimated to come right
+    before that row (along with the row number of the start of that line).
+- The Skin then layouts the text starting from what was received from the Shell
+  till it reaches the expected row, then start rendering whatever required.
+- The skin tells the Shell about the points of wraps in layouted text.
+
+### Without wrapping (horizontal scrolling)
+
+When text wrapping is disabled, vertical scrolling is straightforward.
+Horizontal scrolling on the other hand is slightly tricky in the presence of
+very long lines. First off, we make the limits of the horizontal scrollbar to
+only reflect the range of lines that is currently displayed. This is in best
+interest for the user too since if there is one very long line somewhere on the
+file, it shouldn't make it hard to scroll horizontally when working on a part
+that is far away from that long line.
+
+Previously, in case 1, the shell didn't need to deal with pixel-measurements,
+but here we will. Another thing to note is that we already know the number of
+bytes each line contains (or at least it can be calculated very quickly no
+matter how long the line is).
+
+Now, the way this works is:
+
+- The Skin renders minimal amount of text that's needed to fill the screen (long
+  lines need not be fully read).
+- The Shell receives data from the Skin regarding how many pixels were required
+  for rendering whatever ranges of bytes that were rendered.
+- The Shell estimates the maximum width of lines that is currently in view,
+  based on the above data, and tells the Skin about the limits of scrollbar.
+- When user scrolls horizontally, the Skin asks the Shell for text at certain
+  lines that are `k` pixels away from the start; and the Shell responds with a
+  range of text that is known to start before `k` pixels from start (along with
+  the actual starting pixel position of that range.)
+
+For each line, the Shell needs to store a list of offsets in bytes and the
+corresponding offsets in pixels (not necessarily if the line is small enough).
+Using this data, the Shell can roughly estimate the width of any line given the
+number of bytes in it.
+
+## Syntax Highlighting
 
 The data structure of the index should enable efficient (and possibly lazy)
 updates. Laziness is useful when stale entries may be used to speculate the
 actual values (which is often the case).
 
-### Scroll Bars
-
-For starters, below is a simple scrollbar algorithm:
-
-- Vertical scroll-bars need to only reflect the number of lines, even if
-  text-wrapping is enabled.
-- Mouse-wheel or keyboard cursor movements may be used for finer control.
-
-TODO describe the new design (below is an outdated design)
-
-For smooth scrolling, the scroll-height value must be based on the actual
-number of rows needed to render the whole lines which is hard to calculate when
-text-wrapping is enabled. So caching this information might be useful. If the
-file is too big, we may defer processing the entire file, and insted speculate
-the number of rows needed based on the lines that were processed, and the
-actual render widths may be calculated when the cursor approaches them. For
-each line store:
-
-    render_width, num_rows, window_width, buffer_version
-
-Note: Tab characters may mess with render width speculations.
-
-This cached list should not be updated every time something changes globally
-(such as window-width or tab-width). This whole deal is just to get an
-approximate scroll height. Once the list is constructed, it should only be
-updated when text is actually rendered (at which point, adjust the
-scroll-height too if necessary).
-
-### Syntax Highlighting
-
-Four useful fields per cache entry:
+Four useful fields per index entry:
 
 - Offset: Byte offset of this entry from the beginning of file
 - Version: Version of the buffer using which this entry was created
@@ -274,12 +315,10 @@ Four useful fields per cache entry:
 
 This part is very open ended and really depends on the type of parser used.
 Furthermore, this component can be swapped with a language-specific semantic
-checker to provide very rich highlighting (e.g. highlight errors, using symbol
+checker to provide very rich highlighting (e.g. highlight errors, use symbol
 table to determine the type of an identifier, etc.).
 
-## Features of Shell
-
-### Plugins
+## Plugins
 
 All plugins should be implemented on top of the Shell. Plugins are run on a
 different process, and use IPC for all communication. Provide a wrapper API and
@@ -291,26 +330,21 @@ spawned by the Shell, or are listening on a TCP address.
 To help discover plugins, keep a centralized index of plugins. Dependencies
 should possibly be defined using Capabilities (which are also indexed).
 
-### Capabilities
+## Capabilities
 
 A capability defines plugin APIs for certain tasks. A plugin may be a provider
 of zero or more capabilities. Thus capabilities are a layer through which
 plugins may interact and compose with each other.
 
-### Dummy Lines
-
-These are lines which are inserted between the buffer contents but are
-completely managed by (a plugin via) the Shell. These lines are not editable by
-the user. This feature may be used by diff-plugins, compiler-plugins, and the
-like. This can be extended to Dummy Buffers which completely bypasses the Core.
-
 ## API
 
-### The Core
+### Buffer
 
 ### The Shell
 
 ### The Skin
+
+### The Filer
 
 ## Other design articles
 

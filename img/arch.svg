@@ -54,12 +54,12 @@
   </g>
   <g id="g5744">
    <rect id="rect5571" x="150.62" y="84.094" width="32.75" height="12.855" fill="none" stroke="#000" stroke-width=".6"/>
-   <text id="text5575" x="167.1512" y="92.625687" fill="#000000" font-family="sans-serif" font-size="7.0556px" letter-spacing="0px" stroke-width=".26458px" text-align="center" text-anchor="middle" word-spacing="0px" style="line-height:6.61458302px" xml:space="preserve"><tspan id="tspan5573" x="167.1512" y="92.625687" font-size="5.6444px" stroke-width=".26458px">The Core</tspan></text>
+   <text id="text5575" x="167.1512" y="92.625687" fill="#000000" font-family="sans-serif" font-size="7.0556px" letter-spacing="0px" stroke-width=".26458px" text-align="center" text-anchor="middle" word-spacing="0px" style="line-height:6.61458302px" xml:space="preserve"><tspan id="tspan5573" x="167.1512" y="92.625687" font-size="5.6444px" stroke-width=".26458px">The Filer</tspan></text>
   </g>
   <g id="g5739" transform="translate(1.1017)" fill="none" stroke="#000" stroke-width=".6">
    <path id="path5577" d="m159.54 96.788v9.2483" marker-end="url(#marker5633)"/>
    <path id="path5579" d="m172.24 107.22v-9.2483" marker-end="url(#marker5587)"/>
   </g>
-  <text id="text5748" x="166.66026" y="116.51637" fill="#000000" font-family="sans-serif" font-size="7.0556px" letter-spacing="0px" stroke-width=".26458px" text-align="center" text-anchor="middle" word-spacing="0px" style="line-height:6.61458302px" xml:space="preserve"><tspan id="tspan5746" x="166.66026" y="116.51637" stroke-width=".26458px">Disk/Network</tspan></text>
+  <text id="text5748" x="166.66026" y="116.51637" fill="#000000" font-family="sans-serif" font-size="7.0556px" letter-spacing="0px" stroke-width=".26458px" text-align="center" text-anchor="middle" word-spacing="0px" style="line-height:6.61458302px" xml:space="preserve"><tspan id="tspan5746" x="166.66026" y="116.51637" stroke-width=".26458px">Disk</tspan></text>
  </g>
 </svg>
