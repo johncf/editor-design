@@ -351,5 +351,6 @@ plugins may interact and compose with each other.
 - [GNU Emacs Internals](https://www.gnu.org/software/emacs/manual/html_node/elisp/GNU-Emacs-Internals.html#GNU-Emacs-Internals)
 - [Architecture Analysis and Repair of Open Source Software (page 7 onwards)](http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.46.6702&rep=rep1&type=pdf)
 - [Vim, an open-source editor (section 'Storing text' onwards)](http://www.free-soft.org/FSM/english/issue01/vim.html)
+- [Xi Editor: Rope Science](https://github.com/google/xi-editor/blob/master/doc/rope_science/intro.md)
 - [Kate internals: Text buffer](https://kate-editor.org/2010/03/03/kate-internals-text-buffer/)
 - [Vis: Text management using a piece table](https://github.com/martanne/vis/blob/master/README.md#text-management-using-a-piece-tablechain)
