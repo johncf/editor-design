@@ -17,7 +17,6 @@ Blueprints of an imaginary text editor!
   - [Handling huge files using `mmap`](#handling-huge-files-using-mmap)
 - [The Cursor](#the-cursor)
   - [Vim-like implementation](#vim-like-implementation)
-  - [Text Objects and Cursor motion](#text-objects-and-cursor-motion)
 - [Regular Expressions](#regular-expressions)
 - [Scroll Bars](#scroll-bars)
   - [With word-wrap (vertical scrolling)](#with-word-wrap-vertical-scrolling)
@@ -170,45 +169,6 @@ about this in the next sub-section.
 
 In Select/Visual mode, the Cursor Block has no functional significance, and is
 always placed inside the range at the active end of the selection span.
-
-### Text Objects and Cursor motion
-
-A text object is a range of text whose contents/endpoints are constrained by
-certain rules. The text objects discussed in this section are located near or
-around the cursor position. Therefore, in the table below, "Start" refers to a
-point at or before the cursor, and "End" refers to a point at or after the
-cursor. `.` represents the cursor position itself, and `/...` represents a
-regular expression.
-
-When "Start" or "End" is `.`, it can be used to define a cursor motion. If
-"Start" is `.`, the cursor moves forward, and otherwise, backwards. "Block pos"
-is the position of Cursor Block relative to the Cursor, after the movement has
-been made. Cursor block prefers to be on the right of the cursor. There are two
-built-in commands that depend on the position of the cursor block: `r` and `a`
-(Note: `s` is redundant and not defined; `a` is the same as `i` if cursor block
-is on the left and `li` otherwise). _All_ other commands work based on the
-cursor position alone.
-
-| Text object   | Keymap    | Start       | End         | Block pos  |
-|---------------|-----------|-------------|-------------|------------|
-| word          | `w`       | `.`         | `/\b\w/s`   | right      |
-| word-rev      | `b`       | `/\b\w/s`   | `.`         | right      |
-| word-end      | `e`       | `.`         | `/\w\b/e`   | left       |
-| word-end-rev  | `ge`      | `/\w\b/e`   | `.`         | left       |
-| find-char     | `f{char}` | `.`         | `/{char}/e` | left       |
-| find-char-rev | `F{char}` | `/{char}/s` | `.`         | right      |
-| till-char     | `t{char}` | `.`         | `/{char}/s` | left       |
-| till-char-rev | `T{char}` | `/{char}/e` | `.`         | right      |
-| char-left     | `h`       | `/./s`      | `.`         | right      |
-| char-right    | `l`       | `.`         | `/./e`      | right      |
-| line-up       | `k`       | (custom)    | (custom)    | right      |
-| line-down     | `j`       | (custom)    | (custom)    | right      |
-| line-prefix   | `^`       | `/^/`       | `.`         | right      |
-| line-suffix   | `$`       | `.`         | `/$/`       | left       |
-| row-up        | `gk`      | (custom)    | `.`         | right      |
-| row-down      | `gj`      | `.`         | (custom)    | right      |
-| word-inner    | `<op>iw`  | `/\b\w/s`   | `/\w\b/e`   |            |
-| ...           |           |             |             |            |
 
 Below is an illustration of cursor movements and `d`-commands involving them
 that are different from how Vim behaves (but perhaps more intuvitive).
