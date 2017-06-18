@@ -17,7 +17,7 @@ Blueprints of an imaginary text editor!
   - [Handling huge files using `mmap`](#handling-huge-files-using-mmap)
 - [The Cursor](#the-cursor)
   - [Vim-like implementation](#vim-like-implementation)
-- [Regular Expressions](#regular-expressions)
+- [Search and Replace](#search-and-replace)
 - [Scroll Bars](#scroll-bars)
   - [With word-wrap (vertical scrolling)](#with-word-wrap-vertical-scrolling)
   - [Without wrapping (horizontal scrolling)](#without-wrapping-horizontal-scrolling)
@@ -171,24 +171,37 @@ In Select/Visual mode, the Cursor Block has no functional significance, and is
 always placed inside the range at the active end of the selection span.
 
 Below is an illustration of cursor movements and `d`-commands involving them
-that are different from how Vim behaves (but perhaps more intuvitive).
+that are different from how Vim behaves (but perhaps more intuitive).
 
 ![Cursor movements](img/cursor.svg)
 
 Note: `d`-commands are not affected by the position of cursor block.
 
-## Regular Expressions
+## Search and Replace
 
-The Shell will provide three simple mechanisms involving regular expressions:
+After some exploration, it looks like regular expression search involving ropes
+would be hard. Regex libraries rarely supports such a use-case
+([`boost::regex`][] looked promising since it can work with iterators).
+[Incremental Regex][], which is the ability to recompute match results
+efficiently without rescanning the whole text upon changes, is less explored
+and lack features such as capture groups.
 
-- Search
-- Search and replace
-- Search and replay (a macro)
+Therefore, for the initial implementation, regular expression need not be
+supported, and instead provide a plain-text search and replace (possibly
+supporting escape characters, but not wildcards) feature using a generic
+interface that could be extended with a more powerful engine. One such possible
+extension is to have a single-line version of regular expressions, so that each
+line can be buffered to allow simple regex search/replace to be done on that
+buffer (which could possibly be parallelized).
 
-Apart from these, the user must be encouraged to use external tools such as
-`awk` or `sed`. To that end, the user may be provided with a feature to
+Apart from this, the user could be encouraged to use external tools such as
+`awk` or `sed`. To that end, the user could be provided with a feature to
 "preview" such commands. A "preview" is just a partial view the processed
-result in order to minimize execution time while composing the command.
+result, while composing the command. Note that "preview"-able commands must not
+produce side-effects (pure).
+
+[`boost::regex`]: http://www.boost.org/doc/libs/1_64_0/libs/regex/doc/html/boost_regex/ref/regex_search.html
+[Incremental Regex]: http://jkff.info/articles/ire/
 
 ## Scroll Bars
 
